@@ -1,0 +1,6 @@
+*
+.dockerignore
+.gitignore
+requirements.txt
+!data
+!src
