@@ -4,5 +4,6 @@
 requirements.txt
 docker-compose.yml
 Dockerfile
+README.md
 !data
 !src
