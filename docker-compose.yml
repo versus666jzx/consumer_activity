@@ -1,0 +1,8 @@
+version: "3.9"
+
+services:
+  consumer_activity:
+    build: .
+    container_name: consumer_activity
+    ports:
+      - "80:80"
