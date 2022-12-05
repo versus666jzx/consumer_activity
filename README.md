@@ -11,3 +11,5 @@ git clone https://github.com/versus666jzx/consumer_activity.git
 ```bash
 cd consumer_activity && docker-compose up -d
 ```
+
+3. После успешного запуска контейнера перейдтие по адресу: http://localhost
