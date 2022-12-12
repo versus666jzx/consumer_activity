@@ -3,3 +3,7 @@ plotly==5.11.0
 openpyxl==3.0.10
 streamlit==1.15.2
 
+
+catboost==1.1.1
+numpy==1.23.5
+scikit-learn==1.2.0
