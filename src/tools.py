@@ -92,10 +92,9 @@ def show_description():
     )
 
 
-def show_data_samples(n_samples: int):
-    # т.к. read_data закеширована, то тут просто будет взят кеш, т.к. данные загружаются первый раз в app.py
-    # и не будет повторной загрузки данных с диска
-    revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = read_data()
+def show_data_samples(n_samples: int, data_list: list):
+
+    revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = data_list
 
     st.write("""
             ---
@@ -150,11 +149,9 @@ def show_data_samples(n_samples: int):
     st.button("Обновить", key="UPDATE 5")
 
 
-def visualize():
+def visualize(data_list: list):
 
-    # т.к. read_data закеширована, то тут просто будет взят кеш, т.к. данные загружаются первый раз в app.py
-    # и не будет повторной загрузки данных с диска
-    revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = read_data()
+    revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = data_list
 
     st.subheader("Анализ пассажиропотока за май")
 
@@ -341,7 +338,7 @@ def theory_block():
     st.write("В разработке")
 
 
-@st.cache(show_spinner=False,  allow_output_mutation=True)
+@st.cache(show_spinner=False)
 def read_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame,
                          pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
@@ -427,9 +424,9 @@ def data_prepare_by_user_choice(revenue_data: pd.DataFrame, user_options: dict):
         flight_radar_data = pd.read_csv("data/data_from_flightradar24.csv")
 
     if user_options["convert_data"]:
-        revenue_data["day"] = revenue_data["datetime"].dt.day
-        revenue_data["month"] = revenue_data["datetime"].dt.month
-        revenue_data["year"] = revenue_data["datetime"].dt.year
+        revenue_data["day"] = revenue_data["date"].dt.day
+        revenue_data["month"] = revenue_data["date"].dt.month
+        revenue_data["year"] = revenue_data["date"].dt.year
 
     if user_options["add_busy_days"]:
         revenue_data["is_weekend"] = np.logical_or(False, revenue_data["day_of_week"] == 6)
@@ -452,11 +449,12 @@ def data_prepare_by_user_choice(revenue_data: pd.DataFrame, user_options: dict):
     return X_train, X_test, y_train, y_test
 
 
-def fit_and_evaluate_model(revenue_data: pd.DataFrame, user_options: dict, task_type: str = "GPU"):
+def fit_and_evaluate_model(all_data: list, user_options: dict, task_type: str = "GPU"):
+    revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = all_data
     eval_res = {}
 
     cbr = catboost.CatBoostRegressor(iterations=100, task_type=task_type, random_state=25)
-    X_train, X_test, y_train, y_test = data_prepare_by_user_choice(revenue_data, user_options)
+    X_train, X_test, y_train, y_test = data_prepare_by_user_choice(revenue_05_2022, user_options)
     cbr.fit(X_train, y_train, silent=True)
     preds = cbr.predict(X_test)
 

@@ -7,13 +7,17 @@ st.title("Исследование и прогнозирование потре�
 
 tools.show_description()
 
+with st.spinner("Загрузка данных"):
+    revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = tools.read_data()
+    all_data_list = [revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline]
+
 st.write("### Блок 1: Знакомство с данными")
 with st.expander("Показать доступные данные"):
-    tools.show_data_samples(3)
+    tools.show_data_samples(3, all_data_list)
 
 st.write("### Блок 2: Анализ данных")
 with st.expander("Показать блок анализа данных"):
-    tools.visualize()
+    tools.visualize(all_data_list)
 
 st.write("### Блок 3: Теория по работе с такими данными")
 tools.theory_block()
@@ -43,6 +47,6 @@ with st.form("learning_config"):
 
     st.form_submit_button("Применить параметры")
 
+
 if st.checkbox("Обучить и оценить модель"):
-    revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = tools.read_data()
-    tools.fit_and_evaluate_model(revenue_05_2022, user_options, task_type=user_options["task_type"])
+    tools.fit_and_evaluate_model(all_data_list, user_options, task_type=user_options["task_type"])
