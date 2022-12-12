@@ -334,7 +334,7 @@ def visualize(data_list: list):
     """)
 
 
-def theory_block():
+def hypothesis_and_segmentation_block():
     st.write("В разработке")
 
 

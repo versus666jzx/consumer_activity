@@ -19,8 +19,8 @@ st.write("### Блок 2: Анализ данных")
 with st.expander("Показать блок анализа данных"):
     tools.visualize(all_data_list)
 
-st.write("### Блок 3: Теория по работе с такими данными")
-tools.theory_block()
+st.write("### Блок 3: Построение гипотез и сегментация пассажиропотока")
+tools.hypothesis_and_segmentation_block()
 
 st.write("### Блок 4: Обучение модели")
 
@@ -50,3 +50,6 @@ with st.form("learning_config"):
 
 if st.checkbox("Обучить и оценить модель"):
     tools.fit_and_evaluate_model(all_data_list, user_options, task_type=user_options["task_type"])
+
+st.write("### Блок 5: Выводы")
+st.write("В разработке")
