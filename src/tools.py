@@ -3,14 +3,17 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, max_error, r2_score
 from sklearn.model_selection import train_test_split
 
 
 def show_description():
+
+    st.image("images/people-at-airport.jpg")
+
     st.write(
         """
-        ## Введение
+        ## Актуальность тематики
 
         Международный аэропорт Шереметьево в ежегодном отчете
         Международного совета аэропортов (ACI) признан вторым по пассажиропотоку
@@ -21,12 +24,38 @@ def show_description():
         сосредоточена значительная часть торговых точек и ресторанов, поможет
         аэропорту формировать эффективные маркетинговые предложения, а также
         корректировать планы по развитию маршрутной сети и инфраструктуры.
-        Условие задачи (требования к решению)
+        """)
 
-        ## Что нужно получить
+    with st.expander("Про потребительскую активность"):
+        st.write("""
+        
+        Поведение потребителей, а также факторы, влияющие на принятие решения 
+        о покупке — это то, на чем строится маркетинговая политика большинства 
+        компаний на сегодняшний день. Воздействуя на людей с помощью различных 
+        инструментов маркетинга, организации выстраивают целую систему.
+        
+        ##### Основные характеристики потребительского поведения
+        
+        - Рациональность. Клиент выбирает товар в соответствии со своими вкусами, 
+          интересами, потребностями и финансовыми возможностями. Именно поэтому 
+          производители стремятся как можно больше расширить ассортимент, предоставить 
+          возможность выбора и сравнения продукции одной категории.
+        
+        - Независимость выбора. Тот случай, когда человек принимает решение о покупке самостоятельно.
+        
+        - Множественность. Количество предложений находится в прямой зависимости от 
+          действий покупателя и наоборот. Учитывая, что сегодня рынок товаров и услуг
+          переполнен различными продуктами, которые могут удовлетворить интересы 
+          практически любого, поведение потребителей и факторы, определяющие его, 
+          становятся с каждым днем все более разнообразными.
+        
+        """)
 
-        Предлагается разработать математическую или ИИ-модель,
-        прогнозирующую потребительскую активность в аэропорту в зависимости от
+    st.write("""
+        ## Задача
+
+        Предлагается разработать модель, прогнозирующую потребительскую 
+        активность в аэропорту в зависимости от
         различных факторов:
 
         1. На основании данных первого месяца из датасета (файлы
@@ -40,14 +69,10 @@ def show_description():
         2. Определить сегменты, авиакомпании и направления, с которыми
             связана максимальная потребительская активность.
 
-        3. Оценить влияние иных факторов, таких как задержки рейсов, погодные
-            условия и другие факторы, которые вы можете предложить
-            самостоятельно.
-
-        4. Построить прогноз выручки на второй месяц из датасета на основании
+        3. Построить прогноз выручки на второй месяц из датасета на основании
             данных пассажиропотока (файл 06.2022_Пассажиропоток).
 
-        5. Выработать рекомендации по увеличению выручки в зависимости от
+        4. Выработать рекомендации по увеличению выручки в зависимости от
             доступных факторов и сегментации пассажиропотока.
 
         ## Дано
@@ -67,8 +92,7 @@ def show_description():
     )
 
 
-def show_data_samples():
-
+def show_data_samples(n_samples: int):
     # т.к. read_data закеширована, то тут просто будет взят кеш, т.к. данные загружаются первый раз в app.py
     # и не будет повторной загрузки данных с диска
     revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = read_data()
@@ -77,7 +101,7 @@ def show_data_samples():
             ---
             Данные выручки торговых точек за май:
             """)
-    st.table(revenue_05_2022.sample(7))
+    st.table(revenue_05_2022.sample(n_samples))
 
     st.button("Обновить", key="UPDATE")
     st.write(f"Количество строк: {revenue_05_2022.shape[0]}")
@@ -93,7 +117,7 @@ def show_data_samples():
             ---
             Данные о пассажиропотоке за май:
             """)
-    st.table(pass_throw_05.sample(7))
+    st.table(pass_throw_05.sample(n_samples))
     st.write(f"Количество строк: {pass_throw_05.shape[0]}")
     st.write(f"Количество столбцов: {pass_throw_05.shape[1]}")
     st.button("Обновить", key="UPDATE 2")
@@ -111,7 +135,7 @@ def show_data_samples():
             ---
             Справочник AIRLINES:
             """)
-    st.table(airline.sample(7))
+    st.table(airline.sample(n_samples))
     st.write(f"Количество строк: {airline.shape[0]}")
     st.write(f"Количество столбцов: {airline.shape[1]}")
     st.button("Обновить", key="UPDATE 4")
@@ -120,7 +144,7 @@ def show_data_samples():
             ---
             Справочник AIRPORTS:
             """)
-    st.table(airport.sample(7))
+    st.table(airport.sample(n_samples))
     st.write(f"Количество строк: {airport.shape[0]}")
     st.write(f"Количество столбцов: {airport.shape[1]}")
     st.button("Обновить", key="UPDATE 5")
@@ -154,7 +178,10 @@ def visualize():
     fig.update_traces(textfont_size=14)
 
     st.plotly_chart(fig, use_container_width=True)
-
+    st.write("""
+    Очевидно кратное преимущество компании Аэрофлот - более чем в 9 раз от 
+    ближайшего преследователя компании Smartavia.
+    """)
     #################################################
 
     fig = px.histogram(
@@ -258,13 +285,13 @@ def visualize():
     fig.update_traces(marker_color='#cd5a84', textfont_size=14)
 
     st.plotly_chart(fig)
+    st.write("Из гистограммы видно, что выручка падает по ночам и в целом не однородна в течение дня.")
 
     #################################################
 
     data["час"] = data["час_покупки"].dt.hour
     mean_r = data.groupby("час")["revenue"].mean().round(0).reset_index()
-    mean_r2 = data.groupby(["час"])["revenue"].mean().round(0).reset_index()
-    mean_hour = mean_r2["revenue"].mean()
+    mean_hour = mean_r["revenue"].mean()
 
     fig = px.bar(mean_r, x="час", y="revenue",
                  labels={"revenue": "Средняя выручка в час"}
@@ -282,6 +309,9 @@ def visualize():
     )
 
     st.plotly_chart(fig, use_container_width=True)
+    st.write("""
+    Видно, что выручка точек возрастает в утренние, обеденные и вечерние часы, а ночью сильно проседает.
+    """)
 
     #################################################
 
@@ -301,6 +331,14 @@ def visualize():
     )
 
     st.plotly_chart(fig, use_container_width=True)
+    st.write("""
+    Видим слабый восходящий тренд после 11 мая и пиковые значения 6, 20, 27 мая - это пятницы. 
+    Отметим это, может пригодиться.
+    """)
+
+
+def theory_block():
+    st.write("В разработке")
 
 
 @st.cache(show_spinner=False,  allow_output_mutation=True)
@@ -358,43 +396,9 @@ def add_weekend_revenue_06(revenue: pd.DataFrame) -> pd.DataFrame:
     return revenue
 
 
-def data_prepare(revenue_month: pd.DataFrame, user_choise: dict) -> pd.DataFrame:
-    df = revenue_month.copy(True)
-
-    if user_choise["add_weather_data"]:
-        weather = pd.read_csv("data/svo_weather.csv")
-        df["timeHour"] = df['timeThirty'].dt.floor('60min')
-        df = df.merge(weather, left_on='timeHour', right_on='datetime', how='left')
-
-    if user_choise["add_mean_revenue"]:
-        pass
-
-    print("--- Part 1/4 ---")
-    df["int_point"] = df["point"].apply(lambda x: x.split(" ")[-1:][0])
-    df["int_point"] = df["int_point"].astype(int)
-    df["count_flights"] = df['timeThirty'].swifter.apply(lambda x: count_flights(x))
-    df["count_B_flights"] = df['timeThirty'].swifter.apply(lambda x: count_B_flights(x))
-    df["count_C_flights"] = df['timeThirty'].swifter.apply(lambda x: count_C_flights(x))
-    df["count_SU_flights"] = df['timeThirty'].swifter.apply(lambda x: count_SU_flights(x))
-    df["count_FV_flights"] = df['timeThirty'].swifter.apply(lambda x: count_FV_flights(x))
-
-    df["count_domestic_flights"] = df['timeThirty'].swifter.apply(lambda x: count_domestic_flights(x))
-    df["count_international_flights"] = df['timeThirty'].swifter.apply(lambda x: count_international_flights(x))
-    df["calc_sum_seats"] = df['timeThirty'].swifter.apply(lambda x: calc_sum_seats(x))
-    df["calc_sum_seats_c"] = df['timeThirty'].swifter.apply(lambda x: calc_sum_seats_c(x))
-    df["calc_sum_seats_w"] = df['timeThirty'].swifter.apply(lambda x: calc_sum_seats_w(x))
-    df["calc_sum_seats_y"] = df['timeThirty'].swifter.apply(lambda x: calc_sum_seats_y(x))
-
-    df["calc_avg_distance"] = df['timeThirty'].swifter.apply(lambda x: calc_avg_distance(x))
-    df["calc_avg_temp"] = df['timeThirty'].swifter.apply(lambda x: calc_avg_temp(x))
-    df["calc_avg_lat"] = df['timeThirty'].swifter.apply(lambda x: calc_avg_lat(x))
-    df["calc_avg_lon"] = df['timeThirty'].swifter.apply(lambda x: calc_avg_lon(x))
-    df["calc_avg_boarding_time"] = df['timeThirty'].swifter.apply(lambda x: calc_avg_boarding_time(x))
-    df["calc_avg_delay_time"] = df['timeThirty'].swifter.apply(lambda x: calc_avg_delay_time(x))
-    df["calc_avg_departure_gate"] = df['timeThirty'].swifter.apply(lambda x: calc_avg_departure_gate(x))
-
-
 def data_prepare_by_user_choice(revenue_data: pd.DataFrame, user_options: dict):
+
+    columns_to_drop = ["date", "datetime", "timeThirty", "timeHour", "point"]
 
     if user_options["add_weather_data"]:
         weather = pd.read_csv("data/svo_weather.csv")
@@ -433,7 +437,11 @@ def data_prepare_by_user_choice(revenue_data: pd.DataFrame, user_options: dict):
         revenue_data["is_weekend"] = np.logical_or(revenue_data["is_weekend"], revenue_data["day"] == 10)
         revenue_data["is_weekend"] = revenue_data["is_weekend"].astype(int)
 
-    features = revenue_data.drop(columns=["date", "datetime", "timeThirty", "timeHour", "revenue", "point"], axis=1)
+    for col_to_drop in columns_to_drop:
+        if col_to_drop in revenue_data.columns:
+            del revenue_data[col_to_drop]
+
+    features = revenue_data.drop("revenue", axis=1)
     target = revenue_data["revenue"]
 
     X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.3, random_state=42)
@@ -441,12 +449,18 @@ def data_prepare_by_user_choice(revenue_data: pd.DataFrame, user_options: dict):
     return X_train, X_test, y_train, y_test
 
 
-def fit_model(revenue_data: pd.DataFrame, user_options: dict, task_type: str = "GPU"):
+def fit_and_evaluate_model(revenue_data: pd.DataFrame, user_options: dict, task_type: str = "GPU"):
+    eval_res = {}
+
     cbr = catboost.CatBoostRegressor(iterations=100, task_type=task_type, random_state=25)
     X_train, X_test, y_train, y_test = data_prepare_by_user_choice(revenue_data, user_options)
-    st.write(X_train.sample(7))
-    st.write(X_train.info())
     cbr.fit(X_train, y_train, silent=True)
     preds = cbr.predict(X_test)
 
-    st.write(f"RES of FIT: {mean_squared_error(y_test, preds)}")
+    for metrick in [mean_squared_error, mean_absolute_error, max_error, r2_score]:
+        if metrick.__name__ == "mean_squared_error":
+            eval_res["mean_root_squared_error"] = metrick(y_test, preds, squared=False)
+        else:
+            eval_res[metrick.__name__] = metrick(y_test, preds)
+
+    st.table(pd.Series(eval_res, name="Значение метрики"))

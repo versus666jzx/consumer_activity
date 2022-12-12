@@ -5,7 +5,8 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt --no-cache-dir && \
     rm requirements.txt && \
     mkdir /opt/consumer_activity
-COPY src/ /opt/consumer_activity/src
+COPY images /opt/consumer_activity/
 COPY data/ /opt/consumer_activity/data
+COPY src/ /opt/consumer_activity/src
 WORKDIR /opt/consumer_activity
 ENTRYPOINT ["streamlit", "run", "src/app.py", "--server.port", "80"]

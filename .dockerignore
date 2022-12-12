@@ -4,5 +4,6 @@
 !Dockerfile
 !docker-compose.yml
 !requirements.txt
+!images
 !data
 !src
