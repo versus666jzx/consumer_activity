@@ -33,9 +33,7 @@ with st.form("learning_config"):
         user_options["add_aircraft_seats"] = st.checkbox("Добавить информацию о вместимости самолётов")
 
     with col2:
-        user_options["add_day"] = st.checkbox("Добавить День из даты в отдельную колонку")
-        user_options["add_hour"] = st.checkbox("Добавить Час из даты в отдельную колонку")
-        user_options["add_minute"] = st.checkbox("Добавить Минуту из даты в отдельную колонку")
+        user_options["convert_data"] = st.checkbox("Преобразовать дату в отдельные колонки (день, месяц, год)")
         user_options["add_period_of_day"] = st.checkbox("Добавить время суток (утро, день, вечер)")
 
     user_options["task_type"] = st.selectbox(

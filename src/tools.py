@@ -111,7 +111,7 @@ def show_data_samples(n_samples: int):
 
     with col1:
         st.write("Статистические данные по выручке за май:")
-        st.table(revenue_05_2022["revenue"].describe())
+        st.table(revenue_05_2022["revenue"].describe().rename("Выручка"))
 
     st.write("""
             ---
@@ -398,8 +398,6 @@ def add_weekend_revenue_06(revenue: pd.DataFrame) -> pd.DataFrame:
 
 def data_prepare_by_user_choice(revenue_data: pd.DataFrame, user_options: dict):
 
-    columns_to_drop = ["date", "datetime", "timeThirty", "timeHour", "point"]
-
     if user_options["add_weather_data"]:
         weather = pd.read_csv("data/svo_weather.csv")
         flight_radar_data = pd.read_csv("data/data_from_flightradar24.csv")
@@ -428,6 +426,11 @@ def data_prepare_by_user_choice(revenue_data: pd.DataFrame, user_options: dict):
     if user_options["add_info_from_flight_radar"]:
         flight_radar_data = pd.read_csv("data/data_from_flightradar24.csv")
 
+    if user_options["convert_data"]:
+        revenue_data["day"] = revenue_data["datetime"].dt.day
+        revenue_data["month"] = revenue_data["datetime"].dt.month
+        revenue_data["year"] = revenue_data["datetime"].dt.year
+
     if user_options["add_busy_days"]:
         revenue_data["is_weekend"] = np.logical_or(False, revenue_data["day_of_week"] == 6)
         revenue_data["is_weekend"] = np.logical_or(revenue_data["is_weekend"], revenue_data["day_of_week"] == 7)
@@ -437,7 +440,7 @@ def data_prepare_by_user_choice(revenue_data: pd.DataFrame, user_options: dict):
         revenue_data["is_weekend"] = np.logical_or(revenue_data["is_weekend"], revenue_data["day"] == 10)
         revenue_data["is_weekend"] = revenue_data["is_weekend"].astype(int)
 
-    for col_to_drop in columns_to_drop:
+    for col_to_drop in ["date", "datetime", "timeThirty", "timeHour", "point"]:
         if col_to_drop in revenue_data.columns:
             del revenue_data[col_to_drop]
 
