@@ -334,8 +334,26 @@ def visualize(data_list: list):
     """)
 
 
-def hypothesis_and_segmentation_block():
-    st.write("В разработке")
+def hypothesis_and_segmentation_block(all_data_list: list[pd.DataFrame, ...]):
+    revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = all_data_list
+    # revenue_05_2022["timeHour"] = revenue_05_2022["timeThirty"].dt.floor("60min")
+    # pass_throw_05["timeHour"] = pass_throw_05["Дата рейса"].dt.floor("60min")
+    # pass_throw_05["timeHour"] = pd.to_datetime(pass_throw_05["timeHour"], utc=True)
+    # res = revenue_05_2022.merge(pass_throw_05, on="timeHour")
+    # st.write(revenue_05_2022.shape, res.shape)
+
+    st.write("""
+    Нам доступно достаточно много различных данных для построение модели прогнозирования
+    выручки торговых точек. Для работы с таким большим количеством данных стоит придерживаться
+    определенной концепции:
+     - соберем данные в одну таблицу
+     - т.к. у нас открытые данные, соберем дополнительные данные из открытых источников
+     - создадим новые признаки и имеющихся данных
+     - построим модель
+     - оценим влияние признаков на целевой признак
+     - спрогнозируем целевой признак и оценим модель
+    
+    """)
 
 
 @st.cache(show_spinner=False)

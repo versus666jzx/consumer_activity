@@ -7,9 +7,8 @@ st.title("Исследование и прогнозирование потре�
 
 tools.show_description()
 
-with st.spinner("Загрузка данных"):
-    revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = tools.read_data()
-    all_data_list = [revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline]
+revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = tools.read_data()
+all_data_list = [revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline]
 
 st.write("### Блок 1: Знакомство с данными")
 with st.expander("Показать доступные данные"):
@@ -19,8 +18,8 @@ st.write("### Блок 2: Анализ данных")
 with st.expander("Показать блок анализа данных"):
     tools.visualize(all_data_list)
 
-st.write("### Блок 3: Построение гипотез и сегментация пассажиропотока")
-tools.hypothesis_and_segmentation_block()
+st.write("### Блок 3: Работа с данными и построение гипотез")
+tools.hypothesis_and_segmentation_block(all_data_list)
 
 st.write("### Блок 4: Обучение модели")
 
