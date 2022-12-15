@@ -19,36 +19,15 @@ with st.expander("Показать блок анализа данных"):
     tools.visualize(all_data_list)
 
 st.write("### Блок 3: Работа с данными и построение гипотез")
-tools.hypothesis_and_segmentation_block(all_data_list)
+with st.expander("Показать блок:"):
+    data, data_stock = tools.hypothesis_and_segmentation_block(all_data_list)
 
 st.write("### Блок 4: Обучение модели")
+with st.expander("Показать блок:"):
+    tools.fit_model_block()
+    if st.checkbox("Обучить и оценить модель"):
+        tools.fit_and_evaluate_model(data, data_stock)
 
-user_options = {}
-
-with st.form("learning_config"):
-    col1, col2 = st.columns(2)
-
-    with col1:
-        user_options["add_weather_data"] = st.checkbox("Добавить данные о погоде")
-        user_options["add_mean_revenue"] = st.checkbox("Добавить среднюю выручку по точке")
-        user_options["add_info_from_flight_radar"] = st.checkbox("Добавить информацию с ресурса flightradar24.com")
-        user_options["add_busy_days"] = st.checkbox("Добавить информацию о выходных днях")
-        user_options["add_aircraft_seats"] = st.checkbox("Добавить информацию о вместимости самолётов")
-
-    with col2:
-        user_options["convert_data"] = st.checkbox("Преобразовать дату в отдельные колонки (день, месяц, год)")
-        user_options["add_period_of_day"] = st.checkbox("Добавить время суток (утро, день, вечер)")
-
-    user_options["task_type"] = st.selectbox(
-        label="На чём обучать модель",
-        options=["CPU", "GPU"]
-    )
-
-    st.form_submit_button("Применить параметры")
-
-
-if st.checkbox("Обучить и оценить модель"):
-    tools.fit_and_evaluate_model(all_data_list, user_options, task_type=user_options["task_type"])
 
 st.write("### Блок 5: Выводы")
 st.write("В разработке")

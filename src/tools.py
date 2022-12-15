@@ -4,7 +4,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from sklearn.metrics import mean_squared_error, mean_absolute_error, max_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, TimeSeriesSplit
+from geopy.distance import geodesic
 
 
 def show_description():
@@ -58,7 +59,7 @@ def show_description():
         активность в аэропорту в зависимости от
         различных факторов:
 
-        1. На основании данных первого месяца из датасета (файлы
+        1. На основании данных мая месяца из датасета (файлы
             05.2022_Выручка и 05.2022_Пассажиропоток), построить гипотезы по
             работе с данными и сегментации пассажиропотока в зависимости от
             различных факторов, таких как география рейсов, авиакомпания, время
@@ -336,11 +337,6 @@ def visualize(data_list: list):
 
 def hypothesis_and_segmentation_block(all_data_list: list[pd.DataFrame, ...]):
     revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = all_data_list
-    # revenue_05_2022["timeHour"] = revenue_05_2022["timeThirty"].dt.floor("60min")
-    # pass_throw_05["timeHour"] = pass_throw_05["Дата рейса"].dt.floor("60min")
-    # pass_throw_05["timeHour"] = pd.to_datetime(pass_throw_05["timeHour"], utc=True)
-    # res = revenue_05_2022.merge(pass_throw_05, on="timeHour")
-    # st.write(revenue_05_2022.shape, res.shape)
 
     st.write("""
     Нам доступно достаточно много различных данных для построение модели прогнозирования
@@ -353,6 +349,182 @@ def hypothesis_and_segmentation_block(all_data_list: list[pd.DataFrame, ...]):
      - оценим влияние признаков на целевой признак
      - спрогнозируем целевой признак и оценим модель
     
+    #### Соберем данные в одну таблицу
+    
+    Т.к. у нас нет единого столбца, по которому мы могли бы объединить все данные, придется делать это
+    в несколько шагов:
+    1. Все данные, в которых есть время, будем разбивать на получасовые интервалы.
+    2. Для предсказания выручки каждой точки продаж преобразуем данные по выручке таким образом,
+       чтобы данные по каждой точки продаж находились в отдельной колонке. В дальнейшем мы сможем
+       использовать их как целевые колони при обучении модели.
+       
+       В результате преобразований получим такую таблицу:
+    """)
+
+    a = pd.pivot_table(revenue_05_2022, values='revenue', index=['timeThirty'], columns=['point'], aggfunc=np.sum)
+    a = a.fillna(0)
+    st.table(a.head())
+
+    st.write("""
+    3. Данные из справочника AIRPORTS можем объединить с данными пассажиропотока по столбцам IATACODE и Direction.
+       Коды ИАТА это трехсимвольный буквенно-цифровой геокод, обозначающий многие аэропорты и 
+       мегаполисы по всему миру, определенный Международной ассоциацией воздушного транспорта (IATA).
+       
+       В результате преобразований получим такую таблицу:
+    """)
+    airport_new = airport.copy()
+    airport_new['NAME'] = airport_new['NAME'].apply(lambda x: x.split('/')[-1])
+    airport_new['NAME'] = airport_new['NAME'].apply(lambda x: x.replace(' ', ''))
+    df_pass1 = pass_throw_05.merge(airport_new.set_index('IATACODE'), left_on='Направление куда летит', right_on='IATACODE', validate='m:m')
+    st.table(df_pass1.sample(5))
+
+    st.write("""    
+    4. Преобразуем данные по пассажиропотоку преобразуем аналогично данным по выручке, но в колонках у нас будут
+       города, в которые был осуществлен вылет, а значения - количество пассажиров.
+       
+       В результате преобразований получим такую таблицу:
+    """)
+
+    # группируем по направлению вылета (город)
+    potok = df_pass1.groupby(['Вход в чистую зону', 'TOWN']).agg({'Рейс': 'count'})
+    table = pd.pivot_table(potok, values='Рейс', index=['Вход в чистую зону'], columns=['TOWN'], aggfunc=np.sum)
+    table = table.fillna(0)
+    # делаем разбивку по полчаса
+    potok_inter = table.resample('30T').sum()
+    potok_inter = potok_inter.reset_index()
+    potok_inter = potok_inter.rename(columns={'CZ_enter': '30_minutes_interval'})
+
+    st.table(potok_inter.sample(5))
+
+    st.write("""
+    5. Объединяем данные по пассажиропотоку с данными по выручке и получаем такую таблицу:
+    """)
+
+    inter = revenue_05_2022.groupby(['timeThirty'], as_index=False).agg({'revenue': 'sum'})
+    potok_inter["Вход в чистую зону"] = pd.to_datetime(potok_inter["Вход в чистую зону"], utc=True)
+    df_may = inter.merge(potok_inter, left_on='timeThirty', right_on='Вход в чистую зону').drop("Вход в чистую зону", axis=1)
+    may = df_may.merge(a, on='timeThirty', validate='m:m')
+    may_stock = df_may.merge(a, on='timeThirty', validate='m:m').drop("timeThirty", axis=1)
+    st.table(may.sample(5))
+
+    st.write("""
+    Получили данные за каждые полчаса по выручке и количеству пассажиров, вылетающих по разным направлениям.
+    
+    ---
+    
+    #### Добавим данные из внешних источников
+    
+    Т.к. у нас открытые данные, давайте добавим данные из внешних источников, такие как:
+     - данные о погоде и данные с сайта flightradar24
+    """)
+    st.write("Пример данных о погоде:")
+    weather = pd.read_csv("data/svo_weather.csv")
+    st.write(weather.sample(3))
+    st.write("Пример данных с сайта flightradar24:")
+    flightradar24 = pd.read_csv("data/data_from_flightradar24.csv")
+    st.write(flightradar24.sample(3))
+    st.write(" - данные о количестве мест в самолетах")
+    seats = pd.read_csv("data/aircraft_seats.csv")
+    st.write(seats.sample(3))
+
+    st.write("""
+    Данные о погоде и с сайта flightradar24 имеют два общих столбца "iata" и "icao", объединим их по данным столбцам и
+    возьмем из данных о погоде только столбцы "datetime", "temp", "wind_speed", "visibility", "sky_coverage".
+    
+    После добавления данных получим такую таблицу:
+    """)
+
+    weather["datetime"] = pd.to_datetime(weather["datetime"], utc=True)
+    weather = weather.merge(flightradar24, on="icao", how='left')
+    weather_on_svo = weather[weather["iata"] == 'SVO'][["datetime", "temp", "wind_speed", "visibility", "sky_coverage", "lat", "lon", "alt", "country"]]
+    weather_on_svo = weather_on_svo.rename(columns={"temp": "SVO_temp",
+                                                    "wind_speed": "SVO_wind",
+                                                    "visibility": "SVO_visibility",
+                                                    "sky_coverage": "SVO_sky_coverage"
+                                                    })
+    weather["datetime"] = weather["datetime"].dt.floor("30min")
+    may = may.merge(weather_on_svo, left_on='timeThirty', right_on='datetime', how='left').drop("datetime", axis=1)
+    st.write(may.sample(4))
+
+    st.write("#### Сформулируем гипотезы и создадим новые признаки для их проверки")
+
+    st.write("""
+    1. Мы можем из координат полета вычислить дистанцию с помощью библиотеки geopy, таким образом мы сможем проверить
+       гипотезу о том, что данный параметр влияет на выручку.
+       Для этого нам нужны координаты точки отправления, это аэропорт Шереметьево (его координаты нам известны,
+       это lat=55.972641, long=37.414581) и координаты аэропорта назначения (они есть у нас в данных).
+    """)
+
+    def calc_distance(coords):
+        lat, lon = coords
+        SVO_airport = (55.972641, 37.414581)
+        try:
+            dest_airport = (lat, lon)
+            return geodesic(SVO_airport, dest_airport).km
+        except:
+            return None
+
+    may["distance"] = may[["lon", "lat"]].apply(calc_distance, axis=1)
+    st.write(may.sample(4))
+
+    st.write("""
+    2. Т.к. мы не можем использовать колонку с датой и временем в обучении, нам следует ее удалить из обучающей выборки,
+       но информацию о дате и времени можно сохранить преобразовав ее в несколько отдельных колонок (день, месяц, год,
+       час, минута). Таким образом мы проверим гипотезу о том, что выручка зависит от времени. После данного шага
+       столбец с датой можно удалить.
+       
+       После добавления этих данных получим такую таблицу:
+    """)
+    may["day_of_week"] = may["timeThirty"].dt.dayofweek
+    may["day_of_year"] = may["timeThirty"].dt.dayofyear
+    may["day"] = may["timeThirty"].dt.day
+    may["month"] = may["timeThirty"].dt.month
+    may["hour"] = may["timeThirty"].dt.hour
+    may["minutes"] = may["timeThirty"].dt.minute
+    may = may.drop("timeThirty", axis=1)
+
+    st.write(may.sample(4))
+    
+    st.write("""
+    3. Добавим данные о выходных днях. Таким образом мы проверим гипотезу о том, что выручка в выходные больше, чем
+       в другие дни.
+       
+       После добавления этих данных получим такую таблицу:
+    """)
+    
+    may["is_weekend"] = np.logical_or(False, may["day_of_week"] == 6)
+    may["is_weekend"] = np.logical_or(may["is_weekend"], may["day_of_week"] == 7)
+    may["is_weekend"] = np.logical_or(may["is_weekend"], may["day"] == 13)
+    may["is_weekend"] = may["is_weekend"].astype(int)
+    st.write(may.sample(4))
+
+    may["country"] = may["country"].fillna("Unknown")
+    may["country"] = may["country"].astype('category')
+
+    return may, may_stock
+
+
+def fit_model_block():
+    st.write("""
+        Т.к. в нашем распоряжении данные распределенные во времени, то при обучении модели
+        нам случайно перемешивать в фолдах значения всего временного ряда без сохранения 
+        его структуры нельзя, иначе в процессе потеряются все взаимосвязи наблюдений друг с другом.
+        
+        Поэтому при оценке моделей на временных будем использовать [TimeSeriesSplit](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html).
+        Суть достаточно проста — начинаем обучать модель на небольшом отрезке временного ряда, от 
+        начала до некоторого $t$, делаем прогноз на $t+n$ шагов вперед и считаем ошибку. 
+        Далее расширяем обучающую выборку до $t+n$ значения и прогнозируем с $t+n$ до $t+2*n$, так продолжаем 
+        двигать тестовый отрезок ряда до тех пор, пока не упрёмся в последнее доступное наблюдение. 
+        В итоге получим столько фолдов, сколько $n$ уместится в промежуток между изначальным обучающим 
+        отрезком и всей длиной ряда.
+        
+        
+    """)
+    st.image("images/time_serise_valid.png", caption="Пример применения TimeSeriesSplit")
+
+    st.write("""
+    Теперь, для сравнения, обучим модель CatBoostRegressor на данных до обогащения их из 
+    внешних источников, а также новыми признаками и после и посмотрим разницу.
     """)
 
 
@@ -391,12 +563,6 @@ def prepare_revenue(revenue: pd.DataFrame) -> pd.DataFrame:
 
     revenue["timeThirty"] = pd.to_datetime(revenue["timeThirty"], utc=True)
     revenue["timeHour"] = revenue['timeThirty'].dt.floor('60min')
-    revenue["day_of_week"] = revenue["timeThirty"].dt.dayofweek
-    revenue["day_of_year"] = revenue["timeThirty"].dt.dayofyear
-    revenue["day"] = revenue["timeThirty"].dt.day
-    revenue["month"] = revenue["timeThirty"].dt.month
-    revenue["hour"] = revenue["timeThirty"].dt.hour
-    revenue["minutes"] = revenue["timeThirty"].dt.minute
 
     return revenue
 
@@ -411,75 +577,54 @@ def add_weekend_revenue_06(revenue: pd.DataFrame) -> pd.DataFrame:
     return revenue
 
 
-def data_prepare_by_user_choice(revenue_data: pd.DataFrame, user_options: dict):
+def fit_and_evaluate_model(data: pd.DataFrame, data_stock: pd.DataFrame, task_type: str = "CPU"):
 
-    if user_options["add_weather_data"]:
-        weather = pd.read_csv("data/svo_weather.csv")
-        flight_radar_data = pd.read_csv("data/data_from_flightradar24.csv")
-        weather["datetime"] = pd.to_datetime(weather["datetime"], utc=True)
-        weather = weather.merge(flight_radar_data[["iata", "icao"]], how='left')
-        weather_on_svo = weather[weather["iata"] == 'SVO'][["datetime", "temp", "wind_speed", "visibility", "sky_coverage"]]
-        weather_on_svo = weather_on_svo.rename(columns={"temp": "SVO_temp",
-                                                        "wind_speed": "SVO_wind",
-                                                        "visibility": "SVO_visibility",
-                                                        "sky_coverage": "SVO_sky_coverage"
-                                                        })
-        revenue_data = revenue_data.merge(weather_on_svo, left_on='timeHour', right_on='datetime', how='left')
-
-        del weather, flight_radar_data, weather_on_svo
-
-    if user_options["add_mean_revenue"]:
-        mean_revenue = (revenue_data[["point", "revenue"]]
-                        .groupby(["point"])
-                        .mean()
-                        .sort_values(by="revenue")
-                        .reset_index())\
-            .rename(columns={"revenue": "mean_revenue"})
-        revenue_data = revenue_data.merge(mean_revenue, how='left', left_on='point', right_on='point')
-        del mean_revenue
-
-    if user_options["add_info_from_flight_radar"]:
-        flight_radar_data = pd.read_csv("data/data_from_flightradar24.csv")
-
-    if user_options["convert_data"]:
-        revenue_data["day"] = revenue_data["date"].dt.day
-        revenue_data["month"] = revenue_data["date"].dt.month
-        revenue_data["year"] = revenue_data["date"].dt.year
-
-    if user_options["add_busy_days"]:
-        revenue_data["is_weekend"] = np.logical_or(False, revenue_data["day_of_week"] == 6)
-        revenue_data["is_weekend"] = np.logical_or(revenue_data["is_weekend"], revenue_data["day_of_week"] == 7)
-        revenue_data["is_weekend"] = np.logical_or(revenue_data["is_weekend"], revenue_data["day"] == 2)
-        revenue_data["is_weekend"] = np.logical_or(revenue_data["is_weekend"], revenue_data["day"] == 3)
-        revenue_data["is_weekend"] = np.logical_or(revenue_data["is_weekend"], revenue_data["day"] == 9)
-        revenue_data["is_weekend"] = np.logical_or(revenue_data["is_weekend"], revenue_data["day"] == 10)
-        revenue_data["is_weekend"] = revenue_data["is_weekend"].astype(int)
-
-    for col_to_drop in ["date", "datetime", "timeThirty", "timeHour", "point"]:
-        if col_to_drop in revenue_data.columns:
-            del revenue_data[col_to_drop]
-
-    features = revenue_data.drop("revenue", axis=1)
-    target = revenue_data["revenue"]
-
-    X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.3, random_state=42)
-
-    return X_train, X_test, y_train, y_test
-
-
-def fit_and_evaluate_model(all_data: list, user_options: dict, task_type: str = "GPU"):
-    revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = all_data
     eval_res = {}
+    stock_eval_res = {}
 
-    cbr = catboost.CatBoostRegressor(iterations=100, task_type=task_type, random_state=25)
-    X_train, X_test, y_train, y_test = data_prepare_by_user_choice(revenue_05_2022, user_options)
-    cbr.fit(X_train, y_train, silent=True)
-    preds = cbr.predict(X_test)
+    cbr = catboost.CatBoostRegressor(iterations=1000, task_type=task_type, random_state=25)
+    cbr_for_stock = catboost.CatBoostRegressor(iterations=1000, task_type=task_type, random_state=25)
+    ts_split = TimeSeriesSplit(gap=0, max_train_size=None, n_splits=2, test_size=3)
+    for train_index, test_index in ts_split.split(data):
+        train = data.iloc[train_index]
+        test = data.iloc[test_index]
+        features_train = train.drop("revenue", axis=1)
+        target_train = train["revenue"]
+        features_test = test.drop("revenue", axis=1)
+        target_test = test["revenue"]
+
+        cbr.fit(features_train, target_train, silent=True, cat_features=["country"])
+        preds = cbr.predict(features_test)
 
     for metrick in [mean_squared_error, mean_absolute_error, max_error, r2_score]:
         if metrick.__name__ == "mean_squared_error":
-            eval_res["mean_root_squared_error"] = metrick(y_test, preds, squared=False)
+            eval_res["mean_root_squared_error"] = metrick(target_test, preds, squared=False)
         else:
-            eval_res[metrick.__name__] = metrick(y_test, preds)
+            eval_res[metrick.__name__] = metrick(target_test, preds)
 
-    st.table(pd.Series(eval_res, name="Значение метрики"))
+    for train_index, test_index in ts_split.split(data_stock):
+        train = data_stock.iloc[train_index]
+        test = data_stock.iloc[test_index]
+        features_train = train.drop("revenue", axis=1)
+        target_train = train["revenue"]
+        features_test = test.drop("revenue", axis=1)
+        target_test_stock = test["revenue"]
+
+        cbr_for_stock.fit(features_train, target_train, silent=True)
+        preds_stock = cbr_for_stock.predict(features_test)
+
+    for metrick in [mean_squared_error, mean_absolute_error, max_error, r2_score]:
+        if metrick.__name__ == "mean_squared_error":
+            stock_eval_res["mean_root_squared_error"] = metrick(target_test_stock, preds_stock, squared=False)
+        else:
+            stock_eval_res[metrick.__name__] = metrick(target_test_stock, preds_stock)
+
+    res = pd.DataFrame(
+        data=[
+            pd.Series(eval_res),
+            pd.Series(stock_eval_res)
+        ]
+    ).T
+    res.columns = ["До обогащения", "После обогащения"]
+
+    st.table(res)
