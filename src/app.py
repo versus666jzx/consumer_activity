@@ -29,5 +29,6 @@ with st.expander("Показать блок:"):
         tools.fit_and_evaluate_model(data, data_stock)
 
 
-st.write("### Блок 5: Выводы")
-st.write("В разработке")
+st.write("### Блок 5: Выводы и рекомендации")
+with st.expander("Показать блок:"):
+    tools.conclusions_and_recommendations()

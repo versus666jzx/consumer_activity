@@ -70,8 +70,7 @@ def show_description():
         2. Определить сегменты, авиакомпании и направления, с которыми
             связана максимальная потребительская активность.
 
-        3. Построить прогноз выручки на второй месяц из датасета на основании
-            данных пассажиропотока (файл 06.2022_Пассажиропоток).
+        3. Построить прогноз выручки на конец месяца из датасета.
 
         4. Выработать рекомендации по увеличению выручки в зависимости от
             доступных факторов и сегментации пассажиропотока.
@@ -582,9 +581,9 @@ def fit_and_evaluate_model(data: pd.DataFrame, data_stock: pd.DataFrame, task_ty
     eval_res = {}
     stock_eval_res = {}
 
-    cbr = catboost.CatBoostRegressor(iterations=1000, task_type=task_type, random_state=25)
-    cbr_for_stock = catboost.CatBoostRegressor(iterations=1000, task_type=task_type, random_state=25)
-    ts_split = TimeSeriesSplit(gap=0, max_train_size=None, n_splits=2, test_size=3)
+    cbr = catboost.CatBoostRegressor(iterations=500, task_type=task_type, random_state=25)
+    cbr_for_stock = catboost.CatBoostRegressor(iterations=500, task_type=task_type, random_state=25)
+    ts_split = TimeSeriesSplit(gap=0, max_train_size=None, n_splits=2, test_size=200)
     for train_index, test_index in ts_split.split(data):
         train = data.iloc[train_index]
         test = data.iloc[test_index]
@@ -628,3 +627,49 @@ def fit_and_evaluate_model(data: pd.DataFrame, data_stock: pd.DataFrame, task_ty
     res.columns = ["До обогащения", "После обогащения"]
 
     st.table(res)
+
+    st.write("""
+    График значений выручки на истинных значениях выручки, предсказанных моделью на не обогащенных данных
+    и на обогащенных данных.
+    """)
+
+    st.line_chart({
+        "Предикт по не обогащенным данным": preds_stock,
+        "Предикт по обогащенным данным": preds,
+        "Истинная выручка": target_test
+    })
+
+    st.write("""
+    График значений важности признаков модели, обученной на обогащённых данных.
+    """)
+
+    df = pd.Series(cbr.feature_importances_, index=cbr.feature_names_, name="Важность признака").sort_values(ascending=False)
+
+    st.bar_chart(
+        df
+    )
+    st.write("Отсортированные значение важностей признаков:")
+    st.write(df)
+
+
+def conclusions_and_recommendations():
+    st.write("""
+    Получив рабочую модель и проанализировав результаты её работы, мы можем сделать выводы
+    о том, сработали ли наши гипотезы или нет.
+    
+    ---
+    Гипотезы, которые сработали:
+    
+    1. Есть зависимость выручки от погоды.
+    2. Есть зависимость выручки от времени суток.
+    3. Есть слабая зависимость выручки от выходных дней.
+    
+    ---
+    Гипотезы, которые не сработали:
+    1. Отсутствует зависимость выручки от длины полета.
+    
+    ---
+    Также мы видим, что на выручку одни точки продаж влияют значительно сильнее других, это может
+    быть следствием плохой мобильности пассажиров между терминалами и внутри терминалов аэропорта.
+    
+    """)
