@@ -32,3 +32,6 @@ with st.expander("Показать блок:"):
 st.write("### Блок 5: Выводы и рекомендации")
 with st.expander("Показать блок:"):
     tools.conclusions_and_recommendations()
+
+tools.practice_part()
+
