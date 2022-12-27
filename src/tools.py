@@ -104,8 +104,11 @@ def show_description():
         - Информация с ресурса Яндекс-расписание
         - Информация о погодных условиях (ресурс GISMETEO)
         - Прочие источники
+        
+        ### Пайплайн лаборатоной работы: 
         """
     )
+    st.image("images/pipeline.png")
 
 
 def show_data_samples(n_samples: int, data_list: list):
