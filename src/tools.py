@@ -9,7 +9,6 @@ from geopy.distance import geodesic
 
 
 def show_description():
-
     st.image("images/people-at-airport.jpg")
 
     st.write(
@@ -107,12 +106,11 @@ def show_description():
         
         ### Пайплайн лаборатоной работы: 
         """
-    )
+             )
     st.image("images/pipeline.png")
 
 
 def show_data_samples(n_samples: int, data_list: list):
-
     revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = data_list
 
     st.write("""
@@ -222,7 +220,6 @@ def show_data_samples(n_samples: int, data_list: list):
 
 
 def visualize(data_list: list):
-
     revenue_05_2022, revenue_06_2022, pass_throw_05, pass_throw_06, sced, airport, airline = data_list
 
     st.subheader("Анализ пассажиропотока за май")
@@ -446,7 +443,8 @@ def hypothesis_and_segmentation_block(all_data_list: list[pd.DataFrame, ...]):
     airport_new = airport.copy()
     airport_new['NAME'] = airport_new['NAME'].apply(lambda x: x.split('/')[-1])
     airport_new['NAME'] = airport_new['NAME'].apply(lambda x: x.replace(' ', ''))
-    df_pass1 = pass_throw_05.merge(airport_new.set_index('IATACODE'), left_on='Направление куда летит', right_on='IATACODE', validate='m:m')
+    df_pass1 = pass_throw_05.merge(airport_new.set_index('IATACODE'), left_on='Направление куда летит',
+                                   right_on='IATACODE', validate='m:m')
     st.table(df_pass1.sample(5))
 
     st.write("""    
@@ -473,7 +471,8 @@ def hypothesis_and_segmentation_block(all_data_list: list[pd.DataFrame, ...]):
 
     inter = revenue_05_2022.groupby(['timeThirty'], as_index=False).agg({'revenue': 'sum'})
     potok_inter["Вход в чистую зону"] = pd.to_datetime(potok_inter["Вход в чистую зону"], utc=True)
-    df_may = inter.merge(potok_inter, left_on='timeThirty', right_on='Вход в чистую зону').drop("Вход в чистую зону", axis=1)
+    df_may = inter.merge(potok_inter, left_on='timeThirty', right_on='Вход в чистую зону').drop("Вход в чистую зону",
+                                                                                                axis=1)
     may = df_may.merge(a, on='timeThirty', validate='m:m')
     may_stock = df_may.merge(a, on='timeThirty', validate='m:m').drop("timeThirty", axis=1)
     st.table(may.sample(5))
@@ -507,7 +506,8 @@ def hypothesis_and_segmentation_block(all_data_list: list[pd.DataFrame, ...]):
 
     weather["datetime"] = pd.to_datetime(weather["datetime"], utc=True)
     weather = weather.merge(flightradar24, on="icao", how='left')
-    weather_on_svo = weather[weather["iata"] == 'SVO'][["datetime", "temp", "wind_speed", "visibility", "sky_coverage", "lat", "lon", "alt", "country"]]
+    weather_on_svo = weather[weather["iata"] == 'SVO'][
+        ["datetime", "temp", "wind_speed", "visibility", "sky_coverage", "lat", "lon", "alt", "country"]]
     weather_on_svo = weather_on_svo.rename(columns={"temp": "SVO_temp",
                                                     "wind_speed": "SVO_wind",
                                                     "visibility": "SVO_visibility",
@@ -555,14 +555,14 @@ def hypothesis_and_segmentation_block(all_data_list: list[pd.DataFrame, ...]):
     may = may.drop("timeThirty", axis=1)
 
     st.write(may.sample(4))
-    
+
     st.write("""
     3. Добавим данные о выходных днях. Таким образом мы проверим гипотезу о том, что выручка в выходные больше, чем
        в другие дни.
        
        После добавления этих данных получим такую таблицу:
     """)
-    
+
     may["is_weekend"] = np.logical_or(False, may["day_of_week"] == 6)
     may["is_weekend"] = np.logical_or(may["is_weekend"], may["day_of_week"] == 7)
     may["is_weekend"] = np.logical_or(may["is_weekend"], may["day"] == 13)
@@ -600,13 +600,15 @@ def fit_model_block():
     st.write("""
     Теперь, для сравнения, обучим модель CatBoostRegressor на данных до обогащения их из 
     внешних источников, а также новыми признаками и после и посмотрим разницу.
+    
+    Также, для проверки модели на адекватность, добавим предсказание выручки для точки продаж по
+    предыдущему дню.
     """)
 
 
 @st.cache(show_spinner=False)
 def read_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame,
-                         pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-
+pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     with st.spinner("Загрузка данных..."):
         revenue_05_2022 = pd.read_excel("data/05.2022_Выручка.xlsx")
         revenue_05_2022 = prepare_revenue(revenue_05_2022)
@@ -643,7 +645,6 @@ def prepare_revenue(revenue: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_weekend_revenue_06(revenue: pd.DataFrame) -> pd.DataFrame:
-
     revenue["is_weekend"] = np.logical_or(False, revenue["day_of_week"] == 6)
     revenue["is_weekend"] = np.logical_or(revenue["is_weekend"], revenue["day_of_week"] == 7)
     revenue["is_weekend"] = np.logical_or(revenue["is_weekend"], revenue["day"] == 13)
@@ -653,9 +654,9 @@ def add_weekend_revenue_06(revenue: pd.DataFrame) -> pd.DataFrame:
 
 
 def fit_and_evaluate_model(data: pd.DataFrame, data_stock: pd.DataFrame, task_type: str = "CPU"):
-
     eval_res = {}
     stock_eval_res = {}
+    dummy_eval_res = {}
 
     cbr = catboost.CatBoostRegressor(iterations=500, task_type=task_type, random_state=25)
     cbr_for_stock = catboost.CatBoostRegressor(iterations=500, task_type=task_type, random_state=25)
@@ -694,13 +695,22 @@ def fit_and_evaluate_model(data: pd.DataFrame, data_stock: pd.DataFrame, task_ty
         else:
             stock_eval_res[metrick.__name__] = metrick(target_test_stock, preds_stock)
 
+    preds_shift = target_test_stock.shift(1).fillna(0)
+
+    for metrick in [mean_squared_error, mean_absolute_error, max_error, r2_score]:
+        if metrick.__name__ == "mean_squared_error":
+            dummy_eval_res["mean_root_squared_error"] = metrick(target_test_stock, preds_shift, squared=False)
+        else:
+            dummy_eval_res[metrick.__name__] = metrick(target_test_stock, preds_shift)
+
     res = pd.DataFrame(
         data=[
             pd.Series(eval_res),
-            pd.Series(stock_eval_res)
+            pd.Series(stock_eval_res),
+            pd.Series(dummy_eval_res)
         ]
     ).T
-    res.columns = ["До обогащения", "После обогащения"]
+    res.columns = ["До обогащения", "После обогащения", "По предыдущему дню"]
 
     st.table(res)
     st.write("""
@@ -718,20 +728,34 @@ def fit_and_evaluate_model(data: pd.DataFrame, data_stock: pd.DataFrame, task_ty
     st.line_chart({
         "Предикт по не обогащенным данным": preds_stock,
         "Предикт по обогащенным данным": preds,
-        "Истинная выручка": target_test
+        "Истинная выручка": target_test,
+        "По предыдущему дню": preds_shift
     })
 
     st.write("""
     График значений важности признаков модели, обученной на обогащённых данных.
     """)
 
-    df = pd.Series(cbr.feature_importances_, index=cbr.feature_names_, name="Важность признака").sort_values(ascending=False)
+    df = pd.Series(cbr.feature_importances_, index=cbr.feature_names_, name="Важность признака").sort_values(
+        ascending=False)
 
     st.bar_chart(
         df
     )
-    st.write("Отсортированные значение важностей признаков:")
+    st.write("Отсортированные значения важностей признаков:")
     st.write(df)
+
+    st.write("""
+    Как видим из значений важности признаков, информация о выручке в точках продаж даёт много 
+    необходимой информации для выручки. Это говорит нам о том, что модель научилась хорошо определять
+    объемы выручки каждой из точек продаж в конкретный момент времени, и наиболее важные точки продаж для модели
+    на самом деле генерируют наибольший объем от общей выручки. 
+    
+    На точки продаж с низкой важностью для модели может быть стоит обратить внимание т.к., они 
+    могут быть неудачно расположены в чистой зоне или к ним неудобный доступ для пассажиров, 
+    также может быть их ассортимент плохо удовлетворяет потребностям пассажиров в аэропорту, поэтому
+    они генерируют малый объём выручки.
+    """)
 
 
 def conclusions_and_recommendations():
@@ -744,20 +768,72 @@ def conclusions_and_recommendations():
     о том, сработали ли наши гипотезы или нет.
     
     ---
+    
     Гипотезы, которые сработали:
-    
-    1. Есть зависимость выручки от погоды.
-    2. Есть зависимость выручки от времени суток.
-    3. Есть слабая зависимость выручки от выходных дней.
-    
+    """)
+
+    true_hepotesys = st.multiselect(
+        label="Выберите гипотезы, которые сработали",
+        options=[
+            "Есть зависимость выручки от погоды.",
+            "Есть зависимость выручки от времени суток.",
+            "Есть зависимость выручки от выходных дней.",
+            "Есть зависимость выручки от длины полета."
+        ]
+    )
+
+    true_answers_1 = {"Есть зависимость выручки от погоды.", "Есть зависимость выручки от времени суток.",
+                      "Есть зависимость выручки от выходных дней."}
+
+    if true_hepotesys:
+        if len(true_answers_1.intersection(set(true_hepotesys))) == 3:
+            st.success("Верно!")
+            st.write("""
+            Всего у нас сработало 3 гипотезы:
+            
+            Есть зависимость выручки от погоды - в плохую погоду могут быть отменены рейсы и больше людей больше времени
+            проводят в чистой зоне, это может благоприятно влиять на выручку точек продаж.
+            
+            Есть зависимость от времени суток - некоторые точки продаж могут работать не круглосуточно, некоторые могут
+            иметь ограниченный ассортимент ночью и люди меньше настроены на покупки в ночное время суток. Все это
+            сказывается на выручке.
+            
+            Есть зависимость от выходных дней (слабая) - в выходные дни в аэропорту пассажиропоток чуть больше, чем в остальные
+            дни и чем больше людей находится в чистой зоне - тем больше выручка в точках продаж.
+            
+            """)
+        else:
+            st.error("Ответ неверный.")
+    else:
+        pass
+
+    st.write("""
     ---
+    
     Гипотезы, которые не сработали:
-    1. Отсутствует зависимость выручки от длины полета.
-    
+    """)
+
+    false_hepotesys = st.multiselect(
+        label="Выберите гипотезы, которые не сработали",
+        options=[
+            "Есть зависимость выручки от погоды.",
+            "Есть зависимость выручки от времени суток.",
+            "Есть зависимость выручки от выходных дней.",
+            "Есть зависимость выручки от длины полета."
+        ]
+    )
+
+    if len({"Есть зависимость выручки от длины полета."}.intersection(false_hepotesys)) == 1:
+        st.success("Верно!")
+        st.write("""
+        Длина полёта никак не влияет на выручку точек продаж.
+        """)
+
+    st.write("""
     ---
+    
     Также мы видим, что на выручку одни точки продаж влияют значительно сильнее других, это может
     быть следствием плохой мобильности пассажиров между терминалами и внутри терминалов аэропорта.
-    
     """)
 
 
